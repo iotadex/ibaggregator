@@ -1,32 +1,40 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/ISwapRouterV2.sol";
 import "./interfaces/ISwapRouterV3.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./libraries/TransferHelper.sol";
+import "./ownable.sol";
 
-contract IbAggregatorRouter {
+contract IbAggregatorRouter is Ownable {
     /// @notice Thrown when attempting to execute commands and an incorrect number of inputs are provided
     error LengthMismatch();
-    /// @notice Thrown when a required command has failed
-    error ExecutionFailed(uint256 commandIndex);
+    /// @notice Thrown when a required platform has failed
+    error ExecutionFailed(uint256 platform);
 
     /// @notice Thrown when executing commands with an expired deadline
     error TransactionDeadlinePassed();
 
     struct SwapRouter {
-        uint8 version;
-        address router;
-        address weth;
+        address router; // the swap router contract address
+        address weth; // wrap eth contract address
     }
+    // platform => swap router, if v2 platform <= 0x0f, if v3 platform > 0x0f
     mapping(bytes1 => SwapRouter) public swapRouters;
+    // all the routers
+    address[] internal routers;
 
     modifier checkDeadline(uint256 deadline) {
         if (block.timestamp > deadline) revert TransactionDeadlinePassed();
         _;
     }
 
+    /// @notice Executes the encoded swap commands along with provided inputs as params. The first tokenIn is ETH. Reverts if deadline has expired.
+    /// @param tokenIns A set of tokens, each token contains several inputs params.
+    /// @param counts The count of each tokenIn contains inputs params.
+    /// @param inputs An array of byte strings containing abi encoded inputs for each swap command
+    /// @param deadline The deadline by which the transaction must be executed
     function executeEth(
         address[] calldata tokenIns,
         uint8[] calldata counts,
@@ -53,6 +61,11 @@ contract IbAggregatorRouter {
         }
     }
 
+    /// @notice Executes the encoded swap commands along with provided inputs as params. The first tokenIn is ERC20. Reverts if deadline has expired.
+    /// @param tokenIns A set of tokens, each token contains several inputs params.
+    /// @param counts The count of each tokenIn contains inputs params.
+    /// @param inputs An array of byte strings containing abi encoded inputs for each swap command
+    /// @param deadline The deadline by which the transaction must be executed
     function execute(
         address[] calldata tokenIns,
         uint8[] calldata counts,
@@ -83,12 +96,13 @@ contract IbAggregatorRouter {
         address tokenIn,
         uint256 amountTotalIn,
         bytes calldata inputs
-    ) internal returns (uint256) {
+    ) internal {
         bytes1 platform;
         assembly {
             platform := calldataload(inputs.offset)
         }
         SwapRouter memory swapRouter = swapRouters[platform];
+        require(swapRouter.router != address(0), "don't support");
 
         if (platform > 0x0f) {
             address tokenOut;
@@ -101,20 +115,112 @@ contract IbAggregatorRouter {
                 recipient := calldataload(add(inputs.offset, 0x60))
                 percent := calldataload(add(inputs.offset, 0x80))
             }
-            return
-                ISwapRouter(swapRouter.router).exactInputSingle(
-                    ISwapRouter.ExactInputSingleParams(
-                        tokenIn == address(0) ? swapRouter.weth : tokenIn,
+            if (tokenIn == address(0)) {
+                tokenIn = swapRouter.weth;
+            }
+            if (tokenOut == address(0)) {
+                uint amountOut = ISwapRouterV3(swapRouter.router)
+                    .exactInputSingle(
+                        ISwapRouterV3.ExactInputSingleParams(
+                            tokenIn,
+                            swapRouter.weth,
+                            fee,
+                            address(0),
+                            type(uint256).max,
+                            (amountTotalIn * percent) / 100,
+                            0,
+                            0
+                        )
+                    );
+                ISwapRouterV3(swapRouter.router).unwrapWETH9(
+                    amountOut,
+                    recipient
+                );
+            } else {
+                ISwapRouterV3(swapRouter.router).exactInputSingle(
+                    ISwapRouterV3.ExactInputSingleParams(
+                        tokenIn,
                         tokenOut,
                         fee,
-                        recipient,
-                        999999999999999,
+                        address(0),
+                        type(uint256).max,
                         (amountTotalIn * percent) / 100,
                         0,
                         0
                     )
                 );
-        } else {}
-        return 0;
+            }
+        } else {
+            address tokenOut;
+            uint256 amountOutMin;
+            address recipient;
+            uint8 percent;
+            assembly {
+                amountOutMin := calldataload(add(inputs.offset, 0x20))
+                tokenOut := calldataload(add(inputs.offset, 0x40))
+                recipient := calldataload(add(inputs.offset, 0x60))
+                percent := calldataload(add(inputs.offset, 0x80))
+            }
+            address[] memory path = new address[](2);
+            if (tokenIn == address(0)) {
+                path[0] = swapRouter.weth;
+                path[1] = tokenOut;
+                ISwapRouterV2(swapRouter.router).swapExactETHForTokens{
+                    value: (amountTotalIn * percent) / 100
+                }(amountOutMin, path, recipient, type(uint256).max);
+            } else if (tokenOut == address(0)) {
+                path[0] = tokenIn;
+                path[1] = swapRouter.weth;
+                ISwapRouterV2(swapRouter.router).swapExactTokensForETH(
+                    (amountTotalIn * percent) / 100,
+                    amountOutMin,
+                    path,
+                    recipient,
+                    type(uint256).max
+                );
+            } else {
+                path[0] = tokenIn;
+                path[1] = tokenOut;
+                ISwapRouterV2(swapRouter.router).swapExactTokensForTokens(
+                    (amountTotalIn * percent) / 100,
+                    amountOutMin,
+                    path,
+                    recipient,
+                    type(uint256).max
+                );
+            }
+        }
+    }
+
+    function addRouter(bytes1 platform, address router) external {
+        require(msg.sender == owner, "forbiden");
+        address weth;
+        if (platform > 0x0f) {
+            weth = ISwapRouterV3(router).WETH9();
+        } else {
+            weth = ISwapRouterV2(router).WETH();
+        }
+        swapRouters[platform] = SwapRouter(router, weth);
+    }
+
+    function withdrawETH(address to, uint256 amount) external {
+        require(msg.sender == owner, "forbiden");
+        (bool success, ) = to.call{value: amount}("");
+        require(success, "!withdraw");
+    }
+
+    function withdrawERC20(address token, address to, uint256 amount) external {
+        require(msg.sender == owner, "forbiden");
+        TransferHelper.safeTransfer(token, to, amount);
+    }
+
+    function approve(address[] calldata tokens) external {
+        uint n = tokens.length;
+        uint256 m = routers.length;
+        for (uint256 i = 0; i < n; i++) {
+            for (uint256 j = 0; j < m; j++) {
+                IERC20(tokens[i]).approve(routers[j], type(uint256).max);
+            }
+        }
     }
 }

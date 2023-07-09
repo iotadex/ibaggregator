@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity >=0.6.2;
 
-interface IUniswapV2Router01 {
+interface ISwapRouterV2 {
     function factory() external pure returns (address);
 
     function WETH() external pure returns (address);
