@@ -7,21 +7,12 @@
 const hre = require("hardhat");
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
+  const IbAggregatorRouter = await hre.ethers.getContractFactory("IbAggregatorRouter");
+  const ibAR = await IbAggregatorRouter.deploy();
+  console.log(`deployed IbAggregatorRouter to ${ibAR.address}`);
 
-  const lockedAmount = hre.ethers.utils.parseEther("0.001");
-
-  const Lock = await hre.ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
-
-  await lock.deployed();
-
-  console.log(
-    `Lock with ${ethers.utils.formatEther(
-      lockedAmount
-    )}ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
-  );
+  const b = await ibAR.addRouter(0x1f, "0x3C71B92D6f54473a6c66010dF5Aa139cD42c34b0");
+  console.log(`addRouter : ${b}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

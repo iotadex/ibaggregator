@@ -30,6 +30,10 @@ contract IbAggregatorRouter is Ownable {
         _;
     }
 
+    constructor() {
+        owner = msg.sender;
+    }
+
     /// @notice Executes the encoded swap commands along with provided inputs as params. The first tokenIn is ETH. Reverts if deadline has expired.
     /// @param tokenIns A set of tokens, each token contains several inputs params.
     /// @param counts The count of each tokenIn contains inputs params.
@@ -72,7 +76,7 @@ contract IbAggregatorRouter is Ownable {
         bytes[] calldata inputs,
         uint256 amountIn,
         uint256 deadline
-    ) external payable checkDeadline(deadline) {
+    ) external checkDeadline(deadline) {
         uint256 numTokenIns = tokenIns.length;
         if (counts.length != numTokenIns) revert LengthMismatch();
         TransferHelper.safeTransferFrom(
