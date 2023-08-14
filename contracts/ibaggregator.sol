@@ -21,7 +21,7 @@ contract IbAggregatorRouter is Ownable {
         address weth; // wrap eth contract address
     }
     // platform => swap router, if v2 platform <= 0x0f, if v3 platform > 0x0f
-    mapping(bytes1 => SwapRouter) public swapRouters;
+    mapping(uint8 => SwapRouter) public swapRouters;
     // all the routers
     address[] internal routers;
 
@@ -101,7 +101,7 @@ contract IbAggregatorRouter is Ownable {
         uint256 amountTotalIn,
         bytes calldata inputs
     ) internal {
-        bytes1 platform;
+        uint8 platform;
         assembly {
             platform := calldataload(inputs.offset)
         }
@@ -196,7 +196,7 @@ contract IbAggregatorRouter is Ownable {
         }
     }
 
-    function addRouter(bytes1 platform, address router) external {
+    function addRouter(uint8 platform, address router) external {
         require(msg.sender == owner, "forbiden");
         address weth;
         if (platform > 0x0f) {
