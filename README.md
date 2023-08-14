@@ -173,4 +173,4 @@
 ### platform
 | platform | name    | 
 | ---      | :----:  | 
-| 1        | iotabee | 
+| 1        | iotabee |

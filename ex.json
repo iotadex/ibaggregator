@@ -1,39 +1,23 @@
-{
-    "fromToken": {
-        "symbol": "ETH",
-        "name": "Ether",
-        "decimals": 18,
-        "address": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-        "logoURI": "https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png",
-        "tags": [
-            "native",
-            "PEG:ETH"
-        ]
-    },
-    "toToken": {
-        "symbol": "1INCH",
-        "name": "1INCH Token",
-        "decimals": 18,
-        "address": "0x111111111117dc0aa78b770fa6a738034120c302",
-        "logoURI": "https://tokens.1inch.io/0x111111111117dc0aa78b770fa6a738034120c302.png",
-        "eip2612": true,
-        "tags": [
-            "tokens"
-        ]
-    },
-    "toTokenAmount": "61227785439217363438",
-    "fromTokenAmount": "10000000000000000",
-    "protocols": [
-        [
-            [
-                {
-                    "name": "UNISWAP_V2",
-                    "part": 100,
-                    "fromTokenAddress": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-                    "toTokenAddress": "0x111111111117dc0aa78b770fa6a738034120c302"
-                }
-            ]
-        ]
+[
+    [
+        {
+            "symbol": "WSMR",
+            "contract": "0x1b10CAdebbf96BC2AaA3AFfd78414AB50eCeF571",
+            "amount": 10000000000000000000,
+            "percentage": {
+                "0x93e625FA4e6d8Af18B218B54Ea897F3b94413323": 10,
+                "0xE0bE6538F6DCEa1Bd7825f9dBc406D54F100EbCc": 9990
+            }
+        }
     ],
-    "estimatedGas": 152065
-}
+    [
+        {
+            "symbol": "TT2",
+            "contract": "0xf0D82b7837fC074B8d349e3cEd773089fA77Fde3",
+            "amount": 83990523110660598,
+            "percentage": {
+                "0xA2a8D047287Af25977DFa056e3B8ddc24E2a5AFB": 10000
+            }
+        }
+    ]
+]
