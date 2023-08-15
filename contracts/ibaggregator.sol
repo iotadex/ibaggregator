@@ -12,9 +12,9 @@ contract IbAggregatorRouter is Ownable {
     error LengthMismatch();
     /// @notice Thrown when a required platform has failed
     error ExecutionFailed(uint256 platform);
-
     /// @notice Thrown when executing commands with an expired deadline
     error TransactionDeadlinePassed();
+    uint16 public constant PERCENT = 10000;
 
     struct SwapRouter {
         address router; // the swap router contract address
@@ -131,7 +131,7 @@ contract IbAggregatorRouter is Ownable {
                             fee,
                             address(0),
                             type(uint256).max,
-                            (amountTotalIn * percent) / 100,
+                            (amountTotalIn * percent) / PERCENT,
                             0,
                             0
                         )
@@ -148,7 +148,7 @@ contract IbAggregatorRouter is Ownable {
                         fee,
                         address(0),
                         type(uint256).max,
-                        (amountTotalIn * percent) / 100,
+                        (amountTotalIn * percent) / PERCENT,
                         0,
                         0
                     )
@@ -170,13 +170,13 @@ contract IbAggregatorRouter is Ownable {
                 path[0] = swapRouter.weth;
                 path[1] = tokenOut;
                 ISwapRouterV2(swapRouter.router).swapExactETHForTokens{
-                    value: (amountTotalIn * percent) / 100
+                    value: (amountTotalIn * percent) / PERCENT
                 }(amountOutMin, path, recipient, type(uint256).max);
             } else if (tokenOut == address(0)) {
                 path[0] = tokenIn;
                 path[1] = swapRouter.weth;
                 ISwapRouterV2(swapRouter.router).swapExactTokensForETH(
-                    (amountTotalIn * percent) / 100,
+                    (amountTotalIn * percent) / PERCENT,
                     amountOutMin,
                     path,
                     recipient,
@@ -186,7 +186,7 @@ contract IbAggregatorRouter is Ownable {
                 path[0] = tokenIn;
                 path[1] = tokenOut;
                 ISwapRouterV2(swapRouter.router).swapExactTokensForTokens(
-                    (amountTotalIn * percent) / 100,
+                    (amountTotalIn * percent) / PERCENT,
                     amountOutMin,
                     path,
                     recipient,
