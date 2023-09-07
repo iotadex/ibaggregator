@@ -98,7 +98,7 @@ contract IbAggregatorRouter is Ownable {
 
     function swap(
         address tokenIn,
-        uint256 amountTotalIn,
+        uint256 amountIn,
         bytes calldata inputs
     ) internal {
         uint8 platform;
@@ -112,16 +112,14 @@ contract IbAggregatorRouter is Ownable {
             address tokenOut;
             uint24 fee;
             address recipient;
-            uint8 percent;
+            uint16 percent;
             assembly {
                 tokenOut := calldataload(add(inputs.offset, 0x20))
                 fee := calldataload(add(inputs.offset, 0x40))
                 recipient := calldataload(add(inputs.offset, 0x60))
                 percent := calldataload(add(inputs.offset, 0x80))
             }
-            if (tokenIn == address(0)) {
-                tokenIn = swapRouter.weth;
-            }
+            amountIn = (amountIn * percent) / PERCENT;
             if (tokenOut == address(0)) {
                 uint amountOut = ISwapRouterV3(swapRouter.router)
                     .exactInputSingle(
@@ -131,7 +129,7 @@ contract IbAggregatorRouter is Ownable {
                             fee,
                             address(0),
                             type(uint256).max,
-                            (amountTotalIn * percent) / PERCENT,
+                            amountIn,
                             0,
                             0
                         )
@@ -141,18 +139,35 @@ contract IbAggregatorRouter is Ownable {
                     recipient
                 );
             } else {
-                ISwapRouterV3(swapRouter.router).exactInputSingle(
-                    ISwapRouterV3.ExactInputSingleParams(
-                        tokenIn,
-                        tokenOut,
-                        fee,
-                        address(0),
-                        type(uint256).max,
-                        (amountTotalIn * percent) / PERCENT,
-                        0,
-                        0
-                    )
-                );
+                if (tokenIn == address(0)) {
+                    ISwapRouterV3(swapRouter.router).exactInputSingle{
+                        value: amountIn
+                    }(
+                        ISwapRouterV3.ExactInputSingleParams(
+                            swapRouter.weth,
+                            tokenOut,
+                            fee,
+                            recipient,
+                            type(uint256).max,
+                            amountIn,
+                            0,
+                            0
+                        )
+                    );
+                } else {
+                    ISwapRouterV3(swapRouter.router).exactInputSingle(
+                        ISwapRouterV3.ExactInputSingleParams(
+                            tokenIn,
+                            tokenOut,
+                            fee,
+                            recipient,
+                            type(uint256).max,
+                            amountIn,
+                            0,
+                            0
+                        )
+                    );
+                }
             }
         } else {
             address tokenOut;
@@ -165,18 +180,19 @@ contract IbAggregatorRouter is Ownable {
                 recipient := calldataload(add(inputs.offset, 0x60))
                 percent := calldataload(add(inputs.offset, 0x80))
             }
+            amountIn = (amountIn * percent) / PERCENT;
             address[] memory path = new address[](2);
             if (tokenIn == address(0)) {
                 path[0] = swapRouter.weth;
                 path[1] = tokenOut;
                 ISwapRouterV2(swapRouter.router).swapExactETHForTokens{
-                    value: (amountTotalIn * percent) / PERCENT
+                    value: amountIn
                 }(amountOutMin, path, recipient, type(uint256).max);
             } else if (tokenOut == address(0)) {
                 path[0] = tokenIn;
                 path[1] = swapRouter.weth;
                 ISwapRouterV2(swapRouter.router).swapExactTokensForETH(
-                    (amountTotalIn * percent) / PERCENT,
+                    amountIn,
                     amountOutMin,
                     path,
                     recipient,
@@ -186,7 +202,7 @@ contract IbAggregatorRouter is Ownable {
                 path[0] = tokenIn;
                 path[1] = tokenOut;
                 ISwapRouterV2(swapRouter.router).swapExactTokensForTokens(
-                    (amountTotalIn * percent) / PERCENT,
+                    amountIn,
                     amountOutMin,
                     path,
                     recipient,
@@ -205,6 +221,7 @@ contract IbAggregatorRouter is Ownable {
             weth = ISwapRouterV2(router).WETH();
         }
         swapRouters[platform] = SwapRouter(router, weth);
+        routers.push(router);
     }
 
     function withdrawETH(address to, uint256 amount) external {
