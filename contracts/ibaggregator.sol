@@ -15,6 +15,8 @@ contract IbAggregatorRouter is Ownable {
     /// @notice Thrown when executing commands with an expired deadline
     error TransactionDeadlinePassed();
     uint16 public constant PERCENT = 10000;
+    uint16 public constant FEERATE = 10;
+    address public immutable feeReceipt;
 
     struct SwapRouter {
         address router; // the swap router contract address
@@ -30,8 +32,9 @@ contract IbAggregatorRouter is Ownable {
         _;
     }
 
-    constructor() {
+    constructor(address receipt) {
         owner = msg.sender;
+        feeReceipt = receipt;
     }
 
     /// @notice Executes the encoded swap commands along with provided inputs as params. The first tokenIn is ETH. Reverts if deadline has expired.
@@ -49,6 +52,13 @@ contract IbAggregatorRouter is Ownable {
         if (counts.length != numTokenIns) revert LengthMismatch();
 
         uint256 amountIn = msg.value;
+
+        if (counts[0] > 1){ // take fee
+            uint256 fee = amountIn * FEERATE /PERCENT;
+            TransferHelper.safeTransferETH(feeReceipt, fee);
+            amountIn -= fee;
+        }
+
         for (uint256 j = 0; j < counts[0]; j++) {
             bytes calldata input = inputs[j];
             swap(address(0), amountIn, input);
@@ -85,6 +95,12 @@ contract IbAggregatorRouter is Ownable {
             address(this),
             amountIn
         );
+
+        if (counts[0] > 1){ // take fee
+            uint256 fee = amountIn * FEERATE /PERCENT;
+            TransferHelper.safeTransfer(tokenIns[0], feeReceipt, fee);
+        }
+
         uint256 inputIndex = 0;
         for (uint256 i = 0; i < numTokenIns; i++) {
             amountIn = IERC20(tokenIns[i]).balanceOf(address(this));
@@ -222,17 +238,6 @@ contract IbAggregatorRouter is Ownable {
         }
         swapRouters[platform] = SwapRouter(router, weth);
         routers.push(router);
-    }
-
-    function withdrawETH(address to, uint256 amount) external {
-        require(msg.sender == owner, "forbiden");
-        (bool success, ) = to.call{value: amount}("");
-        require(success, "!withdraw");
-    }
-
-    function withdrawERC20(address token, address to, uint256 amount) external {
-        require(msg.sender == owner, "forbiden");
-        TransferHelper.safeTransfer(token, to, amount);
     }
 
     function approve(address[] calldata tokens) external {
