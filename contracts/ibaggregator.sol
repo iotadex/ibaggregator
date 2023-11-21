@@ -42,42 +42,22 @@ contract IbAggregatorRouter is Ownable {
     /// @param counts The count of each tokenIn contains inputs params.
     /// @param inputs An array of byte strings containing abi encoded inputs for each swap command
     /// @param deadline The deadline by which the transaction must be executed
-    function executeEth(
+    function executeFromEth(
         address[] calldata tokenIns,
         uint8[] calldata counts,
         bytes[] calldata inputs,
         address tokenOut,
+        uint256 amountOutMin,
         uint256 deadline
     ) external payable checkDeadline(deadline) {
-        uint256 numTokenIns = tokenIns.length;
-        if (counts.length != numTokenIns) revert LengthMismatch();
-
+        if (counts.length != tokenIns.length) revert LengthMismatch();
         uint256 amountIn = msg.value;
-
         if (counts[0] > 1){ // take fee
             uint256 fee = amountIn * FEERATE /PERCENT;
             TransferHelper.safeTransferETH(feeReceipt, fee);
             amountIn -= fee;
         }
-
-        for (uint256 j = 0; j < counts[0]; j++) {
-            bytes calldata input = inputs[j];
-            swap(address(0), amountIn, input);
-        }
-
-        uint256 inputIndex = counts[0];
-        for (uint256 i = 1; i < numTokenIns; i++) {
-            if (tokenIns[i] == address(0)){
-                amountIn = address(this).balance;
-            }else{
-                amountIn = IERC20(tokenIns[i]).balanceOf(address(this));
-            }
-            for (uint256 j = 0; j < counts[i]; j++) {
-                bytes calldata input = inputs[inputIndex];
-                swap(tokenIns[i], amountIn, input);
-                inputIndex++;
-            }
-        }
+        execute(tokenIns, counts, inputs, tokenOut, amountOutMin);
     }
 
     /// @notice Executes the encoded swap commands along with provided inputs as params. The first tokenIn is ERC20. Reverts if deadline has expired.
@@ -85,15 +65,16 @@ contract IbAggregatorRouter is Ownable {
     /// @param counts The count of each tokenIn contains inputs params.
     /// @param inputs An array of byte strings containing abi encoded inputs for each swap command
     /// @param deadline The deadline by which the transaction must be executed
-    function execute(
+    function executeForToken(
         address[] calldata tokenIns,
         uint8[] calldata counts,
         bytes[] calldata inputs,
+        address tokenOut,
         uint256 amountIn,
+        uint256 amountOutMin,
         uint256 deadline
     ) external payable checkDeadline(deadline) {
-        uint256 numTokenIns = tokenIns.length;
-        if (counts.length != numTokenIns) revert LengthMismatch();
+        if (counts.length != tokenIns.length) revert LengthMismatch();
         TransferHelper.safeTransferFrom(
             tokenIns[0],
             msg.sender,
@@ -106,26 +87,40 @@ contract IbAggregatorRouter is Ownable {
             TransferHelper.safeTransfer(tokenIns[0], feeReceipt, fee);
         }
 
+        execute(tokenIns, counts, inputs, tokenOut, amountOutMin);
+    }
+
+    function execute(
+        address[] calldata tokenIns,
+        uint8[] calldata counts,
+        bytes[] calldata inputs,
+        address tokenOut,
+        uint256 amountOutMin
+    ) internal returns (uint256 amountOut){
         uint256 inputIndex = 0;
-        for (uint256 i = 0; i < numTokenIns; i++) {
+        for (uint256 i = 0; i < tokenIns.length; i++) {
+            uint256 amountIn;
             if (tokenIns[i] == address(0)){
                 amountIn = address(this).balance;
             }else{
                 amountIn = IERC20(tokenIns[i]).balanceOf(address(this));
             }
             for (uint256 j = 0; j < counts[i]; j++) {
-                bytes calldata input = inputs[inputIndex];
-                swap(tokenIns[i], amountIn, input);
+                (uint256 ao, address to) = swap(tokenIns[i], amountIn, inputs[inputIndex]);
+                if (tokenOut == to){
+                    amountOut += ao;
+                }
                 inputIndex++;
             }
         }
+        require(amountOut >= amountOutMin, "amount out min required");
     }
 
     function swap(
         address tokenIn,
         uint256 amountIn,
         bytes calldata inputs
-    ) internal returns(uint256 amountOut){
+    ) internal returns(uint256 amountOut, address tokenOut){
         uint8 platform;
         assembly {
             platform := calldataload(inputs.offset)
@@ -134,7 +129,6 @@ contract IbAggregatorRouter is Ownable {
         require(swapRouter.router != address(0), "don't support");
 
         if (platform > 0x0f) {
-            address tokenOut;
             uint24 fee;
             address recipient;
             uint16 percent;
@@ -195,7 +189,6 @@ contract IbAggregatorRouter is Ownable {
                 }
             }
         } else {
-            address tokenOut;
             uint256 amountOutMin;
             address recipient;
             uint8 percent;
