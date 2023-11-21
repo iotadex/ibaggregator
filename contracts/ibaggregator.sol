@@ -46,6 +46,7 @@ contract IbAggregatorRouter is Ownable {
         address[] calldata tokenIns,
         uint8[] calldata counts,
         bytes[] calldata inputs,
+        address tokenOut,
         uint256 deadline
     ) external payable checkDeadline(deadline) {
         uint256 numTokenIns = tokenIns.length;
@@ -124,7 +125,7 @@ contract IbAggregatorRouter is Ownable {
         address tokenIn,
         uint256 amountIn,
         bytes calldata inputs
-    ) internal {
+    ) internal returns(uint256 amountOut){
         uint8 platform;
         assembly {
             platform := calldataload(inputs.offset)
@@ -145,7 +146,7 @@ contract IbAggregatorRouter is Ownable {
             }
             amountIn = (amountIn * percent) / PERCENT;
             if (tokenOut == address(0)) {
-                uint amountOut = ISwapRouterV3(swapRouter.router)
+                amountOut = ISwapRouterV3(swapRouter.router)
                     .exactInputSingle(
                         ISwapRouterV3.ExactInputSingleParams(
                             tokenIn,
@@ -164,7 +165,7 @@ contract IbAggregatorRouter is Ownable {
                 );
             } else {
                 if (tokenIn == address(0)) {
-                    ISwapRouterV3(swapRouter.router).exactInputSingle{
+                    amountOut = ISwapRouterV3(swapRouter.router).exactInputSingle{
                         value: amountIn
                     }(
                         ISwapRouterV3.ExactInputSingleParams(
@@ -179,7 +180,7 @@ contract IbAggregatorRouter is Ownable {
                         )
                     );
                 } else {
-                    ISwapRouterV3(swapRouter.router).exactInputSingle(
+                    amountOut = ISwapRouterV3(swapRouter.router).exactInputSingle(
                         ISwapRouterV3.ExactInputSingleParams(
                             tokenIn,
                             tokenOut,
@@ -209,29 +210,32 @@ contract IbAggregatorRouter is Ownable {
             if (tokenIn == address(0)) {
                 path[0] = swapRouter.weth;
                 path[1] = tokenOut;
-                ISwapRouterV2(swapRouter.router).swapExactETHForTokens{
+                uint[] memory outs = ISwapRouterV2(swapRouter.router).swapExactETHForTokens{
                     value: amountIn
                 }(amountOutMin, path, recipient, type(uint256).max);
+                amountOut = outs[0];
             } else if (tokenOut == address(0)) {
                 path[0] = tokenIn;
                 path[1] = swapRouter.weth;
-                ISwapRouterV2(swapRouter.router).swapExactTokensForETH(
+                uint[] memory outs = ISwapRouterV2(swapRouter.router).swapExactTokensForETH(
                     amountIn,
                     amountOutMin,
                     path,
                     recipient,
                     type(uint256).max
                 );
+                amountOut = outs[0];
             } else {
                 path[0] = tokenIn;
                 path[1] = tokenOut;
-                ISwapRouterV2(swapRouter.router).swapExactTokensForTokens(
+                uint[] memory outs = ISwapRouterV2(swapRouter.router).swapExactTokensForTokens(
                     amountIn,
                     amountOutMin,
                     path,
                     recipient,
                     type(uint256).max
                 );
+                amountOut = outs[0];
             }
         }
     }
