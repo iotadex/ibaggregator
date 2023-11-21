@@ -66,7 +66,11 @@ contract IbAggregatorRouter is Ownable {
 
         uint256 inputIndex = counts[0];
         for (uint256 i = 1; i < numTokenIns; i++) {
-            amountIn = IERC20(tokenIns[i]).balanceOf(address(this));
+            if (tokenIns[i] == address(0)){
+                amountIn = address(this).balance;
+            }else{
+                amountIn = IERC20(tokenIns[i]).balanceOf(address(this));
+            }
             for (uint256 j = 0; j < counts[i]; j++) {
                 bytes calldata input = inputs[inputIndex];
                 swap(tokenIns[i], amountIn, input);
@@ -86,7 +90,7 @@ contract IbAggregatorRouter is Ownable {
         bytes[] calldata inputs,
         uint256 amountIn,
         uint256 deadline
-    ) external checkDeadline(deadline) {
+    ) external payable checkDeadline(deadline) {
         uint256 numTokenIns = tokenIns.length;
         if (counts.length != numTokenIns) revert LengthMismatch();
         TransferHelper.safeTransferFrom(
@@ -103,7 +107,11 @@ contract IbAggregatorRouter is Ownable {
 
         uint256 inputIndex = 0;
         for (uint256 i = 0; i < numTokenIns; i++) {
-            amountIn = IERC20(tokenIns[i]).balanceOf(address(this));
+            if (tokenIns[i] == address(0)){
+                amountIn = address(this).balance;
+            }else{
+                amountIn = IERC20(tokenIns[i]).balanceOf(address(this));
+            }
             for (uint256 j = 0; j < counts[i]; j++) {
                 bytes calldata input = inputs[inputIndex];
                 swap(tokenIns[i], amountIn, input);
