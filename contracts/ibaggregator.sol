@@ -8,12 +8,6 @@ import "./libraries/TransferHelper.sol";
 import "./ownable.sol";
 
 contract IbAggregatorRouter is Ownable {
-    /// @notice Thrown when attempting to execute commands and an incorrect number of inputs are provided
-    error LengthMismatch();
-    /// @notice Thrown when a required platform has failed
-    error ExecutionFailed(uint256 platform);
-    /// @notice Thrown when executing commands with an expired deadline
-    error TransactionDeadlinePassed();
     uint16 public constant PERCENT = 10000;
     uint16 public constant FEERATE = 10;
     address public immutable feeReceipt;
@@ -28,13 +22,18 @@ contract IbAggregatorRouter is Ownable {
     address[] internal routers;
 
     modifier checkDeadline(uint256 deadline) {
-        if (block.timestamp > deadline) revert TransactionDeadlinePassed();
+        require(block.timestamp <= deadline, "deadline") ;
         _;
     }
 
     constructor(address receipt) {
         owner = msg.sender;
         feeReceipt = receipt;
+
+        address router = 0xb783f05F28DFABD0d09Ccb524e6C6289Cb0e7C1F;
+        address weth = ISwapRouterV3(router).WETH9();
+        swapRouters[16] = SwapRouter(router, weth);
+        routers.push(router);
     }
 
     /// @notice Executes the encoded swap commands along with provided inputs as params. The first tokenIn is ETH. Reverts if deadline has expired.
@@ -50,12 +49,9 @@ contract IbAggregatorRouter is Ownable {
         uint256 amountOutMin,
         uint256 deadline
     ) external payable checkDeadline(deadline) {
-        if (counts.length != tokenIns.length) revert LengthMismatch();
-        uint256 amountIn = msg.value;
+        require(counts.length == tokenIns.length, "length of counts error");
         if (counts[0] > 1){ // take fee
-            uint256 fee = amountIn * FEERATE /PERCENT;
-            TransferHelper.safeTransferETH(feeReceipt, fee);
-            amountIn -= fee;
+            TransferHelper.safeTransferETH(feeReceipt, msg.value * FEERATE /PERCENT);
         }
         execute(tokenIns, counts, inputs, tokenOut, amountOutMin);
     }
@@ -74,7 +70,7 @@ contract IbAggregatorRouter is Ownable {
         uint256 amountOutMin,
         uint256 deadline
     ) external payable checkDeadline(deadline) {
-        if (counts.length != tokenIns.length) revert LengthMismatch();
+        require(counts.length == tokenIns.length, "length of counts error");
         TransferHelper.safeTransferFrom(
             tokenIns[0],
             msg.sender,
@@ -83,8 +79,7 @@ contract IbAggregatorRouter is Ownable {
         );
 
         if (counts[0] > 1){ // take fee
-            uint256 fee = amountIn * FEERATE /PERCENT;
-            TransferHelper.safeTransfer(tokenIns[0], feeReceipt, fee);
+            TransferHelper.safeTransfer(tokenIns[0], feeReceipt, (amountIn * FEERATE) / PERCENT);
         }
 
         execute(tokenIns, counts, inputs, tokenOut, amountOutMin);
@@ -103,7 +98,7 @@ contract IbAggregatorRouter is Ownable {
             if (tokenIns[i] == address(0)){
                 amountIn = address(this).balance;
             }else{
-                amountIn = IERC20(tokenIns[i]).balanceOf(address(this));
+                amountIn = IERC20(tokenIns[i]).balanceOf(address(this)); 
             }
             for (uint256 j = 0; j < counts[i]; j++) {
                 (uint256 ao, address to) = swap(tokenIns[i], amountIn, inputs[inputIndex]);
@@ -154,7 +149,7 @@ contract IbAggregatorRouter is Ownable {
                         )
                     );
                 ISwapRouterV3(swapRouter.router).unwrapWETH9(
-                    amountOut,
+                    0,
                     recipient
                 );
             } else {
