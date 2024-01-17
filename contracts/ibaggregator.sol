@@ -34,6 +34,11 @@ contract IbAggregatorRouter is Ownable {
         address weth = ISwapRouterV3(router).WETH9();
         swapRouters[16] = SwapRouter(router, weth);
         routers.push(router);
+
+        router = 0x1372C03B0c542017a256473706BA6121F8263980;
+        weth = 0xBEb654A116aeEf764988DF0C6B4bf67CC869D01b;
+        swapRouters[17] = SwapRouter(router, weth);
+        routers.push(router);
     }
 
     /// @notice Executes the encoded swap commands along with provided inputs as params. The first tokenIn is ETH. Reverts if deadline has expired.
@@ -61,7 +66,7 @@ contract IbAggregatorRouter is Ownable {
     /// @param counts The count of each tokenIn contains inputs params.
     /// @param inputs An array of byte strings containing abi encoded inputs for each swap command
     /// @param deadline The deadline by which the transaction must be executed
-    function executeForToken(
+    function executeFromToken(
         address[] calldata tokenIns,
         uint8[] calldata counts,
         bytes[] calldata inputs,
@@ -102,7 +107,9 @@ contract IbAggregatorRouter is Ownable {
             }
             for (uint256 j = 0; j < counts[i]; j++) {
                 (uint256 ao, address to) = swap(tokenIns[i], amountIn, inputs[inputIndex]);
-                if (tokenOut == to){
+                if ((to == 0x1074010000000000000000000000000000000000) && (tokenOut == address(0))){
+                    amountOut += ao;
+                }else if (tokenOut == to){
                     amountOut += ao;
                 }
                 inputIndex++;
@@ -233,7 +240,7 @@ contract IbAggregatorRouter is Ownable {
         address weth;
         if (platform > 0x0f) {
             weth = ISwapRouterV3(router).WETH9();
-        } else {
+        } else if (platform > 0x01) {
             weth = ISwapRouterV2(router).WETH();
         }
         swapRouters[platform] = SwapRouter(router, weth);
@@ -249,4 +256,6 @@ contract IbAggregatorRouter is Ownable {
             }
         }
     }
+
+    receive() external payable {}
 }
