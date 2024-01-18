@@ -26,6 +26,8 @@ contract IbAggregatorRouter is Ownable {
         _;
     }
 
+    event AggregatorSwap(address indexed sender, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+
     constructor(address receipt) {
         owner = msg.sender;
         feeReceipt = receipt;
@@ -58,7 +60,10 @@ contract IbAggregatorRouter is Ownable {
         if (counts[0] > 1){ // take fee
             TransferHelper.safeTransferETH(feeReceipt, msg.value * FEERATE /PERCENT);
         }
-        execute(tokenIns, counts, inputs, tokenOut, amountOutMin);
+
+        amountOutMin = execute(tokenIns, counts, inputs, tokenOut, amountOutMin);
+        
+        emit AggregatorSwap(msg.sender, tokenIns[0], tokenOut, msg.value, amountOutMin);
     }
 
     /// @notice Executes the encoded swap commands along with provided inputs as params. The first tokenIn is ERC20. Reverts if deadline has expired.
@@ -87,7 +92,8 @@ contract IbAggregatorRouter is Ownable {
             TransferHelper.safeTransfer(tokenIns[0], feeReceipt, (amountIn * FEERATE) / PERCENT);
         }
 
-        execute(tokenIns, counts, inputs, tokenOut, amountOutMin);
+        amountOutMin = execute(tokenIns, counts, inputs, tokenOut, amountOutMin);
+        emit AggregatorSwap(msg.sender, tokenIns[0], tokenOut, amountIn, amountOutMin);
     }
 
     function execute(
