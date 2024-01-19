@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.18;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/ISwapRouterV2.sol";
 import "./interfaces/ISwapRouterV3.sol";
+import "./interfaces/IShimmerSea.sol";
 import "./libraries/TransferHelper.sol";
 import "./ownable.sol";
 
@@ -40,6 +40,11 @@ contract IbAggregatorRouter is Ownable {
         router = 0x1372C03B0c542017a256473706BA6121F8263980;
         weth = 0xBEb654A116aeEf764988DF0C6B4bf67CC869D01b;
         swapRouters[17] = SwapRouter(router, weth);
+        routers.push(router);
+
+        router = 0x1dBCC54d42503dA1455A38ab74b0e6b780d65Bc0; 
+        weth = 0xBEb654A116aeEf764988DF0C6B4bf67CC869D01b;
+        swapRouters[1] = SwapRouter(router, weth);
         routers.push(router);
     }
 
@@ -79,7 +84,7 @@ contract IbAggregatorRouter is Ownable {
         uint256 amountIn,
         uint256 amountOutMin,
         uint256 deadline
-    ) external payable checkDeadline(deadline) {
+    ) external checkDeadline(deadline) {
         require(counts.length == tokenIns.length, "length of counts error");
         TransferHelper.safeTransferFrom(
             tokenIns[0],
@@ -196,49 +201,105 @@ contract IbAggregatorRouter is Ownable {
                     );
                 }
             }
-        } else {
-            uint256 amountOutMin;
+        }else {
             address recipient;
             uint8 percent;
             assembly {
-                amountOutMin := calldataload(add(inputs.offset, 0x20))
                 tokenOut := calldataload(add(inputs.offset, 0x40))
                 recipient := calldataload(add(inputs.offset, 0x60))
                 percent := calldataload(add(inputs.offset, 0x80))
             }
             amountIn = (amountIn * percent) / PERCENT;
-            address[] memory path = new address[](2);
-            if (tokenIn == address(0)) {
-                path[0] = swapRouter.weth;
-                path[1] = tokenOut;
-                uint[] memory outs = ISwapRouterV2(swapRouter.router).swapExactETHForTokens{
-                    value: amountIn
-                }(amountOutMin, path, recipient, type(uint256).max);
-                amountOut = outs[0];
-            } else if (tokenOut == address(0)) {
-                path[0] = tokenIn;
-                path[1] = swapRouter.weth;
-                uint[] memory outs = ISwapRouterV2(swapRouter.router).swapExactTokensForETH(
-                    amountIn,
-                    amountOutMin,
-                    path,
-                    recipient,
-                    type(uint256).max
-                );
-                amountOut = outs[0];
-            } else {
-                path[0] = tokenIn;
-                path[1] = tokenOut;
-                uint[] memory outs = ISwapRouterV2(swapRouter.router).swapExactTokensForTokens(
-                    amountIn,
-                    amountOutMin,
-                    path,
-                    recipient,
-                    type(uint256).max
-                );
-                amountOut = outs[0];
-            }
+            if (platform == 0x01){
+                amountOut = swapShimmerSea(recipient, tokenIn, tokenOut, amountIn);
+            }else{
+                address[] memory path = new address[](2);
+                if (tokenIn == address(0)) {
+                    path[0] = swapRouter.weth;
+                    path[1] = tokenOut;
+                    uint[] memory outs = ISwapRouterV2(swapRouter.router).swapExactETHForTokens{
+                        value: amountIn
+                    }(0, path, recipient, type(uint256).max);
+                    amountOut = outs[0];
+                } else if (tokenOut == address(0)) {
+                    path[0] = tokenIn;
+                    path[1] = swapRouter.weth;
+                    uint[] memory outs = ISwapRouterV2(swapRouter.router).swapExactTokensForETH(
+                        amountIn,
+                        0,
+                        path,
+                        recipient,
+                        type(uint256).max
+                    );
+                    amountOut = outs[0];
+                } else {
+                    path[0] = tokenIn;
+                    path[1] = tokenOut;
+                    uint[] memory outs = ISwapRouterV2(swapRouter.router).swapExactTokensForTokens(
+                        amountIn,
+                        0,
+                        path,
+                        recipient,
+                        type(uint256).max
+                    );
+                    amountOut = outs[0];
+                }
+            }            
         }
+    }
+
+    mapping(address => mapping(address => uint256[])) public pairBinSteps;
+    mapping(address => mapping(address => ILBRouter.Version[])) public versions;
+    function swapShimmerSea(address recipient, address tokenIn, address tokenOut, uint256 amountIn) internal returns(uint256 amountOut){
+        //address[] memory path = new address[](2);
+        if (tokenIn == address(0)) {
+            ILBRouter.Path memory path = getShimmerSeaPath(swapRouters[1].weth, tokenOut);
+            amountOut = ILBRouter(swapRouters[1].router).swapExactNATIVEForTokens{
+                value: amountIn
+            }(
+                0, 
+                path, 
+                recipient, 
+                type(uint256).max
+            );
+        } else if (tokenOut == address(0)) {
+            ILBRouter.Path memory path = getShimmerSeaPath(tokenIn, swapRouters[1].weth);
+            amountOut = ILBRouter(swapRouters[1].router).swapExactTokensForNATIVE(
+                amountIn,
+                0,
+                path,
+                payable(recipient),
+                type(uint256).max
+            );
+        } else {
+            ILBRouter.Path memory path = getShimmerSeaPath(tokenIn, tokenOut);
+            amountOut = ILBRouter(swapRouters[1].router).swapExactTokensForTokens(
+                amountIn,
+                0,
+                path,
+                recipient,
+                type(uint256).max
+            );
+        }
+    }
+
+    function getShimmerSeaPath(address tokenIn, address tokenOut) internal view returns (ILBRouter.Path memory path){
+        IERC20[] memory p = new IERC20[](2);
+        p[0] = IERC20(tokenIn);
+        p[1] = IERC20(tokenOut);
+        path = ILBRouter.Path(pairBinSteps[tokenIn][tokenOut], versions[tokenIn][tokenOut], p);
+    }
+
+    function setShimmerSeaPath(address token0, address token1, uint256 binStep, uint8 version) external{
+        require(msg.sender == owner, "forbiden");
+        uint256[] memory binSteps = new uint256[](1);
+        binSteps[0] = binStep;
+        ILBRouter.Version[] memory vs = new ILBRouter.Version[](1);
+        vs[0] = ILBRouter.Version(version);
+        pairBinSteps[token0][token1] = binSteps;
+        pairBinSteps[token1][token0] = binSteps;
+        versions[token0][token1] = vs;
+        versions[token1][token0] = vs;
     }
 
     function addRouter(uint8 platform, address router) external {
