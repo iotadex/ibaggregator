@@ -8,14 +8,14 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 10
+        runs: 200
       }
     }
   },
   defaultNetwork: "smrevm1072",
   networks: {
     smrevm1072: {
-      url: "https://json-rpc.evm.testnet.shimmer.network",
+      url: "https://json-rpc.evm.shimmer.network",
       accounts: [process.env.RMS_CONTRACT_PRIVATEKEY],
     },
     mumbai: {
