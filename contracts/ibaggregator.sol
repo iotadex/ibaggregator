@@ -164,7 +164,9 @@ contract IbAggregatorRouter is Ownable {
             amountIn = (amountIn * percent) / PERCENT;
             if (platform == 0x01){
                 amountOut = swapShimmerSea(swapRouter, recipient, tokenIn, tokenOut, amountIn);
-            }else{
+            } else if (platform == 0x02){
+                amountOut = swapLine(swapRouter, recipient, tokenIn, tokenOut, amountIn);
+            } else{
                 amountOut = swapUniV2(swapRouter, recipient, tokenIn, tokenOut, amountIn);
             }
         }
@@ -259,7 +261,6 @@ contract IbAggregatorRouter is Ownable {
     mapping(address => mapping(address => uint256[])) public pairBinSteps;
     mapping(address => mapping(address => ILBRouter.Version[])) public versions;
     function swapShimmerSea(SwapRouter memory swapRouter, address recipient, address tokenIn, address tokenOut, uint256 amountIn) internal returns(uint256 amountOut){
-        //address[] memory path = new address[](2);
         if (tokenIn == address(0)) {
             ILBRouter.Path memory path = getShimmerSeaPath(swapRouter.weth, tokenOut);
             amountOut = ILBRouter(swapRouter.router).swapExactNATIVEForTokens{
@@ -310,6 +311,62 @@ contract IbAggregatorRouter is Ownable {
             pairBinSteps[tokens1[i]][tokens0[i]] = binSteps;
             versions[tokens0[i]][tokens1[i]] = vs;
             versions[tokens1[i]][tokens0[i]] = vs;
+        }
+    }
+
+    mapping(address => mapping(address => uint256[])) public linePairBinSteps;
+    mapping(address => mapping(address => ILBRouter.Version[])) public lineVersions;
+    function swapLine(SwapRouter memory swapRouter, address recipient, address tokenIn, address tokenOut, uint256 amountIn) internal returns(uint256 amountOut){
+        if (tokenIn == address(0)) {
+            ILBRouter.Path memory path = getSwapLinePath(swapRouter.weth, tokenOut);
+            amountOut = ILBRouter(swapRouter.router).swapExactNATIVEForTokens{
+                value: amountIn
+            }(
+                0, 
+                path, 
+                recipient, 
+                type(uint256).max
+            );
+        } else if (tokenOut == address(0)) {
+            ILBRouter.Path memory path = getSwapLinePath(tokenIn, swapRouter.weth);
+            amountOut = ILBRouter(swapRouter.router).swapExactTokensForNATIVE(
+                amountIn,
+                0,
+                path,
+                payable(recipient),
+                type(uint256).max
+            );
+        } else {
+            ILBRouter.Path memory path = getSwapLinePath(tokenIn, tokenOut);
+            amountOut = ILBRouter(swapRouter.router).swapExactTokensForTokens(
+                amountIn,
+                0,
+                path,
+                recipient,
+                type(uint256).max
+            );
+        }
+    }
+
+    function getSwapLinePath(address tokenIn, address tokenOut) internal view returns (ILBRouter.Path memory path){
+        IERC20[] memory p = new IERC20[](2);
+        p[0] = IERC20(tokenIn);
+        p[1] = IERC20(tokenOut);
+        path = ILBRouter.Path(linePairBinSteps[tokenIn][tokenOut], lineVersions[tokenIn][tokenOut], p);
+    }
+
+    function setSwapLinePath(address[] memory tokens0, address[] memory tokens1, uint256[] memory _binSteps, uint8[] memory _versions) external{
+        require(msg.sender == owner, "forbiden");
+        for (uint256 i = 0; i < tokens0.length; i++) {
+            uint256[] memory binSteps = new uint256[](1);
+            binSteps[0] = _binSteps[i];
+            ILBRouter.Version[] memory vs = new ILBRouter.Version[](1);
+            vs[0] = ILBRouter.Version(_versions[i]);
+
+            linePairBinSteps[tokens0[i]][tokens1[i]] = binSteps;
+            linePairBinSteps[tokens1[i]][tokens0[i]] = binSteps;
+            lineVersions[tokens0[i]][tokens1[i]] = vs;
+            lineVersions[tokens1[i]][tokens0[i]] = vs;
         }
     }
 
