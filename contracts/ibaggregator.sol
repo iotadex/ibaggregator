@@ -127,6 +127,21 @@ contract IbAggregatorRouter is Ownable {
             }
         }
         require(amountOut >= amountOutMin, "amount out min required");
+
+        //check the remain amount to send to user
+        for (uint256 i = 0; i < tokenIns.length; i++) {
+            uint256 amountIn;
+            if (tokenIns[i] == address(0)){
+                if (address(this).balance > 0){
+                    TransferHelper.safeTransferETH(msg.sender, address(this).balance);
+                }                
+            }else {
+                amountIn = IERC20(tokenIns[i]).balanceOf(address(this)); 
+                if (amountIn > 0){
+                    TransferHelper.safeTransfer(tokenIns[i], msg.sender, amountIn);
+                }
+            }
+        }
     }
 
     function swap(
@@ -154,18 +169,18 @@ contract IbAggregatorRouter is Ownable {
             amountIn = (amountIn * percent) / PERCENT;
             amountOut = swapUniV3(swapRouter, recipient, tokenIn, tokenOut, fee, amountIn);
         }else {
+            uint256 binStep;
             address recipient;
             uint16 percent;
             assembly {
                 tokenOut := calldataload(add(inputs.offset, 0x20))
-                recipient := calldataload(add(inputs.offset, 0x40))
-                percent := calldataload(add(inputs.offset, 0x60))
+                binStep := calldataload(add(inputs.offset, 0x40))
+                recipient := calldataload(add(inputs.offset, 0x60))
+                percent := calldataload(add(inputs.offset, 0x80))
             }
             amountIn = (amountIn * percent) / PERCENT;
             if (platform == 0x01){
-                amountOut = swapShimmerSea(swapRouter, recipient, tokenIn, tokenOut, amountIn);
-            } else if (platform == 0x02){
-                amountOut = swapLine(swapRouter, recipient, tokenIn, tokenOut, amountIn);
+                amountOut = swapShimmerSea(swapRouter, recipient, tokenIn, tokenOut, binStep, amountIn);
             } else{
                 amountOut = swapUniV2(swapRouter, recipient, tokenIn, tokenOut, amountIn);
             }
@@ -258,11 +273,9 @@ contract IbAggregatorRouter is Ownable {
         }
     }
 
-    mapping(address => mapping(address => uint256[])) public pairBinSteps;
-    mapping(address => mapping(address => ILBRouter.Version[])) public versions;
-    function swapShimmerSea(SwapRouter memory swapRouter, address recipient, address tokenIn, address tokenOut, uint256 amountIn) internal returns(uint256 amountOut){
+    function swapShimmerSea(SwapRouter memory swapRouter, address recipient, address tokenIn, address tokenOut, uint256 binStep, uint256 amountIn) internal returns(uint256 amountOut){
         if (tokenIn == address(0)) {
-            ILBRouter.Path memory path = getShimmerSeaPath(swapRouter.weth, tokenOut);
+            ILBRouter.Path memory path = getShimmerSeaPath(swapRouter.weth, tokenOut, binStep);
             amountOut = ILBRouter(swapRouter.router).swapExactNATIVEForTokens{
                 value: amountIn
             }(
@@ -272,7 +285,7 @@ contract IbAggregatorRouter is Ownable {
                 type(uint256).max
             );
         } else if (tokenOut == address(0)) {
-            ILBRouter.Path memory path = getShimmerSeaPath(tokenIn, swapRouter.weth);
+            ILBRouter.Path memory path = getShimmerSeaPath(tokenIn, swapRouter.weth, binStep);
             amountOut = ILBRouter(swapRouter.router).swapExactTokensForNATIVE(
                 amountIn,
                 0,
@@ -281,7 +294,7 @@ contract IbAggregatorRouter is Ownable {
                 type(uint256).max
             );
         } else {
-            ILBRouter.Path memory path = getShimmerSeaPath(tokenIn, tokenOut);
+            ILBRouter.Path memory path = getShimmerSeaPath(tokenIn, tokenOut, binStep);
             amountOut = ILBRouter(swapRouter.router).swapExactTokensForTokens(
                 amountIn,
                 0,
@@ -292,82 +305,20 @@ contract IbAggregatorRouter is Ownable {
         }
     }
 
-    function getShimmerSeaPath(address tokenIn, address tokenOut) internal view returns (ILBRouter.Path memory path){
+    function getShimmerSeaPath(address tokenIn, address tokenOut, uint256 binStep) internal pure returns (ILBRouter.Path memory path){
         IERC20[] memory p = new IERC20[](2);
         p[0] = IERC20(tokenIn);
         p[1] = IERC20(tokenOut);
-        path = ILBRouter.Path(pairBinSteps[tokenIn][tokenOut], versions[tokenIn][tokenOut], p);
-    }
-
-    function setShimmerSeaPath(address[] memory tokens0, address[] memory tokens1, uint256[] memory _binSteps, uint8[] memory _versions) external{
-        require(msg.sender == owner, "forbiden");
-        for (uint256 i = 0; i < tokens0.length; i++) {
-            uint256[] memory binSteps = new uint256[](1);
-            binSteps[0] = _binSteps[i];
-            ILBRouter.Version[] memory vs = new ILBRouter.Version[](1);
-            vs[0] = ILBRouter.Version(_versions[i]);
-
-            pairBinSteps[tokens0[i]][tokens1[i]] = binSteps;
-            pairBinSteps[tokens1[i]][tokens0[i]] = binSteps;
-            versions[tokens0[i]][tokens1[i]] = vs;
-            versions[tokens1[i]][tokens0[i]] = vs;
+        uint256[] memory pairBinSteps = new uint256[](1);
+        pairBinSteps[0] = binStep;
+        ILBRouter.Version[] memory versions = new ILBRouter.Version[](1);
+        if (binStep > 0){
+            versions[0] = ILBRouter.Version(2);
+        }else{
+            versions[0] = ILBRouter.Version(0);
         }
-    }
 
-    mapping(address => mapping(address => uint256[])) public linePairBinSteps;
-    mapping(address => mapping(address => ILBRouter.Version[])) public lineVersions;
-    function swapLine(SwapRouter memory swapRouter, address recipient, address tokenIn, address tokenOut, uint256 amountIn) internal returns(uint256 amountOut){
-        if (tokenIn == address(0)) {
-            ILBRouter.Path memory path = getSwapLinePath(swapRouter.weth, tokenOut);
-            amountOut = ILBRouter(swapRouter.router).swapExactNATIVEForTokens{
-                value: amountIn
-            }(
-                0, 
-                path, 
-                recipient, 
-                type(uint256).max
-            );
-        } else if (tokenOut == address(0)) {
-            ILBRouter.Path memory path = getSwapLinePath(tokenIn, swapRouter.weth);
-            amountOut = ILBRouter(swapRouter.router).swapExactTokensForNATIVE(
-                amountIn,
-                0,
-                path,
-                payable(recipient),
-                type(uint256).max
-            );
-        } else {
-            ILBRouter.Path memory path = getSwapLinePath(tokenIn, tokenOut);
-            amountOut = ILBRouter(swapRouter.router).swapExactTokensForTokens(
-                amountIn,
-                0,
-                path,
-                recipient,
-                type(uint256).max
-            );
-        }
-    }
-
-    function getSwapLinePath(address tokenIn, address tokenOut) internal view returns (ILBRouter.Path memory path){
-        IERC20[] memory p = new IERC20[](2);
-        p[0] = IERC20(tokenIn);
-        p[1] = IERC20(tokenOut);
-        path = ILBRouter.Path(linePairBinSteps[tokenIn][tokenOut], lineVersions[tokenIn][tokenOut], p);
-    }
-
-    function setSwapLinePath(address[] memory tokens0, address[] memory tokens1, uint256[] memory _binSteps, uint8[] memory _versions) external{
-        require(msg.sender == owner, "forbiden");
-        for (uint256 i = 0; i < tokens0.length; i++) {
-            uint256[] memory binSteps = new uint256[](1);
-            binSteps[0] = _binSteps[i];
-            ILBRouter.Version[] memory vs = new ILBRouter.Version[](1);
-            vs[0] = ILBRouter.Version(_versions[i]);
-
-            linePairBinSteps[tokens0[i]][tokens1[i]] = binSteps;
-            linePairBinSteps[tokens1[i]][tokens0[i]] = binSteps;
-            lineVersions[tokens0[i]][tokens1[i]] = vs;
-            lineVersions[tokens1[i]][tokens0[i]] = vs;
-        }
+        path = ILBRouter.Path(pairBinSteps, versions, p);
     }
 
     function addRouter(uint8 platform, address router) external {
