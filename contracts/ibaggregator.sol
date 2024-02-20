@@ -130,13 +130,12 @@ contract IbAggregatorRouter is Ownable {
 
         //check the remain amount to send to user
         for (uint256 i = 0; i < tokenIns.length; i++) {
-            uint256 amountIn;
             if (tokenIns[i] == address(0)){
                 if (address(this).balance > 0){
                     TransferHelper.safeTransferETH(msg.sender, address(this).balance);
                 }                
             }else {
-                amountIn = IERC20(tokenIns[i]).balanceOf(address(this)); 
+                uint256 amountIn = IERC20(tokenIns[i]).balanceOf(address(this)); 
                 if (amountIn > 0){
                     TransferHelper.safeTransfer(tokenIns[i], msg.sender, amountIn);
                 }
