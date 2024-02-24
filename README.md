@@ -176,12 +176,20 @@
 | 0x10     | iotabee    |
 | 0x11     | tangleswap |
 | 0x01     | shimmersea |
-| 0x02     | swapline   |
 
 ## tokens 
 ["0x6C890075406C5DF08b427609E3A2eAD1851AD68D","0x1426116752d65111278c9e598E80E3B055D8D571","0x174d211F46994860500DB4d66B3EFE605A82BF95","0x1cDF3F46DbF8Cf099D218cF96A769cea82F75316","0x3bBb9B7848De06778fEE4fE0bC4d9AB271e56648","0x3C844FB5AD27A078d945dDDA8076A4084A76E513","0x5dA63f4456A56a0c5Cb0B2104a3610D5CA3d48E8","0x68acf9Da768a5f43c7D29999D44e9e39026DDDc4","0xa158A39d00C79019A01A6E86c56E96C461334Eb0","0xc0E49f8C615d3d4c245970F6Dc528E4A47d69a44","0xc5759E47b0590146675C560163036C302Fa05bC3","0xd2a67f5C808C7F525845975423F9979809188E44","0xd459140CFA38f3488F2076c3A4e9271Cf2f2E40C","0xE9308Bf2d95d11E324E0C62FF24bBD4bbc5dA546","0x1074010000000000000000000000000000000000","0x4794Aeafa5Efe2fC1F6f5eb745798aaF39A81D3e","0xa4f8C7C1018b9dD3be5835bF00f335D9910aF6Bd","0x326f23422CE22Ee5fBb5F37f9fa1092d095546F8","0x4638C9fb4eFFe36C49d8931BB713126063BF38f9","0xbD17705cA627EFBB55dE22A0F966Af79E9191c89","0xb0119035d08CB5f467F9ed8Eae4E5f9626Aa7402","0x264F2e6142CE8bEA68e5C646f8C07db98A9E003A","0x8E9b86C02F54d4D909e25134ce45bdf2B6597306","0xeCE555d37C37D55a6341b80cF35ef3BC57401d1A","0xE6373A7Bb9B5a3e71D1761a6Cb4992AD8537Bf28","0xE5f3dCC241Dd008E3c308e57cf4F7880eA9210F8","0x83b090759017EFC9cB4d9E45B813f5D5CbBFeb95"]
 
-insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0xeDaD279fFC1279E44FCAcA4f09991EE3b30Fec1d","0x4638C9fb4eFFe36C49d8931BB713126063BF38f9","0x0",10000,200,3,16);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0x1cC8e24022EBd1c9a08ff853792Ea8Bf13b9D867","0x5dA63f4456A56a0c5Cb0B2104a3610D5CA3d48E8","0x0",3000,25,21,1);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0x1E96DeB50F41a9215212E7bC1b6b42282C006003","0x0","0xa4f8C7C1018b9dD3be5835bF00f335D9910aF6Bd",3000,20,21,1);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0x6a23eEfdE1bDFA4F0D2eF3886D5927A8F6803dc3","0x4638C9fb4eFFe36C49d8931BB713126063BF38f9","0x0",3000,25,21,1);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0xD2b48955A0FC68551275b0EC0699baC1e973D7CB","0xb0119035d08CB5f467F9ed8Eae4E5f9626Aa7402","0x0",3000,25,21,1);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0x854E4412Bad441153031D0498781C82e3d2ff4F6","0xeCE555d37C37D55a6341b80cF35ef3BC57401d1A","0xa4f8C7C1018b9dD3be5835bF00f335D9910aF6Bd",3000,1,21,1);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0x8B1778E3756a1ae7124433240e5678B0F6831C1d","0x5dA63f4456A56a0c5Cb0B2104a3610D5CA3d48E8","0xa4f8C7C1018b9dD3be5835bF00f335D9910aF6Bd",3000,25,21,1);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0x398737AAeD4c16ea7Ba6533D24A96e2573292151","0xbD17705cA627EFBB55dE22A0F966Af79E9191c89","0xa4f8C7C1018b9dD3be5835bF00f335D9910aF6Bd",3000,50,21,1);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0x653E3ec798b77409523BB5817a6C002f05746f12","0x4794Aeafa5Efe2fC1F6f5eb745798aaF39A81D3e","0xa4f8C7C1018b9dD3be5835bF00f335D9910aF6Bd",3000,50,21,1);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0x4bA7CdBbA2b173DAE283CA2264D1f87628cB5b24","0xE6373A7Bb9B5a3e71D1761a6Cb4992AD8537Bf28","0x0",3000,25,21,1);
+insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`platform`) VALUES("0xe4d730B40a3E60eB0A32DD8DEab54A28Cc63a6cb","0xE6373A7Bb9B5a3e71D1761a6Cb4992AD8537Bf28","0x0",3000,100,21,1);
 
 0x
 0000000000000000000000000000000000000000000000000000000000000001
@@ -210,3 +218,27 @@ insert INTO `pool`(`contract`,`token0`,`token1`,`fee_rate`,`space`,`version`,`pl
 000000000000000000000000508966d23a06b274afed6069d08efd0ea0827ac8
 0000000000000000000000000000000000000000000000000000000000002710
 " ]
+
+    function getBinsReserves(address pool) public view 
+        returns(uint24[] memory ids, uint128[] memory reservesX, uint128[] memory reservesY, uint64 height) {
+        ILBPair pair = ILBPair(pool);
+        uint24 activeId = pair.getActiveId();
+        ids = new uint24[](256);
+        reservesX = new uint128[](256);
+        reservesX = new uint128[](256);
+        uint24 id = activeId + 1;
+        for (uint16 i= 0; i < 128; i++) {
+            id = pair.getNextNonEmptyBin(true, id);
+            if (id == type(uint24).max ) break;
+            ids[i] = id;
+            (reservesX[i], reservesY[i]) = pair.getBin(id);
+        }
+        id = activeId;
+        for (uint16 i= 0; i < 128; i++) {
+            id = pair.getNextNonEmptyBin(false, id);
+            if (id == 0 ) break;
+            ids[i + 128] = id;
+            (reservesX[i + 128], reservesY[i + 128]) = pair.getBin(id);
+        }
+        height = uint64(block.number);
+    }
